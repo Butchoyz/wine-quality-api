@@ -18,7 +18,7 @@ export default function WinePredictor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const apiUrl = "https://wine-quality-api-arqa.onrender.com/predict";
+  const apiUrl = "https://wine-quality-api-production.up.railway.app/predict";
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
