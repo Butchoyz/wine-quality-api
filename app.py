@@ -5,9 +5,7 @@ import joblib
 import os
 
 app = Flask(__name__)
-
-# ✅ CORS Setup: Allow from your frontend origin (React dev server)
-CORS(app, resources={r"/predict": {"origins": "http://localhost:5173"}})
+CORS(app, origins=["https://labexam1-c5b75.web.app"])  # ✅ Allow your frontend
 
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
@@ -22,8 +20,6 @@ def home():
 def predict():
     try:
         data = request.get_json()
-        print("📥 Received JSON:", data)
-
         input_data = np.array([
             data["fixed_acidity"],
             data["volatile_acidity"],
@@ -38,8 +34,9 @@ def predict():
             data["alcohol"]
         ]).reshape(1, -1)
 
-        input_data[:, [2, 8]] = imputer_median.transform(input_data[:, [2, 8]])  # citric + pH
-        input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])  # density
+        input_data[:, 2:3] = imputer_median.transform(input_data[:, 2:3])
+        input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])
+        input_data[:, 8:9] = imputer_median.transform(input_data[:, 8:9])
 
         prediction = model.predict(input_data)[0]
         confidence = model.predict_proba(input_data)[0][prediction]
@@ -50,7 +47,6 @@ def predict():
         })
 
     except Exception as e:
-        print("❌ ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
