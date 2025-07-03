@@ -5,7 +5,13 @@ import joblib
 import os
 
 app = Flask(__name__)
-CORS(app, origins=["https://labexam1-c5b75.web.app"])  # ✅ Allow your frontend
+
+# ✅ Full CORS config to handle preflight OPTIONS requests
+CORS(app, resources={r"/*": {
+    "origins": "https://labexam1-c5b75.web.app",
+    "methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Content-Type"]
+}})
 
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
