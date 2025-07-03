@@ -23,16 +23,16 @@ def predict():
     try:
         data = request.get_json()
 
-        # Ensure all expected fields are present
-        expected_fields = [
+        # Define expected feature names in correct order
+        feature_names = [
             "fixed_acidity", "volatile_acidity", "citric_acid",
             "residual_sugar", "chlorides", "free_sulfur_dioxide",
             "total_sulfur_dioxide", "density", "pH", "sulphates", "alcohol"
         ]
-        if not all(field in data for field in expected_fields):
-            return jsonify({"error": "Missing input fields"}), 400
 
-        input_data = np.array([
+        # Create a DataFrame instead of a NumPy array
+        import pandas as pd
+        input_df = pd.DataFrame([[
             data["fixed_acidity"],
             data["volatile_acidity"],
             data["citric_acid"],
@@ -44,15 +44,16 @@ def predict():
             data["pH"],
             data["sulphates"],
             data["alcohol"]
-        ]).reshape(1, -1)
+        ]], columns=feature_names)
 
-        # Apply imputers correctly on slices
-        input_data[:, 2] = imputer_median.transform(input_data[:, 2].reshape(-1, 1)).flatten()
-        input_data[:, 7] = imputer_mean.transform(input_data[:, 7].reshape(-1, 1)).flatten()
-        input_data[:, 8] = imputer_median.transform(input_data[:, 8].reshape(-1, 1)).flatten()
+        # Apply imputers (now using DataFrame with column names)
+        input_df[["citric_acid"]] = imputer_median.transform(input_df[["citric_acid"]])
+        input_df[["density"]] = imputer_mean.transform(input_df[["density"]])
+        input_df[["pH"]] = imputer_median.transform(input_df[["pH"]])
 
-        prediction = model.predict(input_data)[0]
-        confidence = model.predict_proba(input_data)[0][prediction]
+        # Predict using model
+        prediction = model.predict(input_df)[0]
+        confidence = model.predict_proba(input_df)[0][prediction]
 
         return jsonify({
             "result": "Good" if prediction == 1 else "Not Good",
