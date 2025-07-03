@@ -5,7 +5,9 @@ import joblib
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # ✅ Fix CORS for all origins
+
+# ✅ CORS Setup: Allow from your frontend origin (React dev server)
+CORS(app, resources={r"/predict": {"origins": "http://localhost:5173"}})
 
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
@@ -22,7 +24,6 @@ def predict():
         data = request.get_json()
         print("📥 Received JSON:", data)
 
-        # Prepare input
         input_data = np.array([
             data["fixed_acidity"],
             data["volatile_acidity"],
@@ -37,15 +38,9 @@ def predict():
             data["alcohol"]
         ]).reshape(1, -1)
 
-        print("🧪 Before imputation:", input_data)
-
-        # Apply imputers properly (✅ Use both citric acid and pH at once if the imputer expects 2 columns)
-        input_data[:, [2, 8]] = imputer_median.transform(input_data[:, [2, 8]])  # citric acid and pH
+        input_data[:, [2, 8]] = imputer_median.transform(input_data[:, [2, 8]])  # citric + pH
         input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])  # density
 
-        print("✅ After imputation:", input_data)
-
-        # Predict
         prediction = model.predict(input_data)[0]
         confidence = model.predict_proba(input_data)[0][prediction]
 
