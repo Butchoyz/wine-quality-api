@@ -35,6 +35,7 @@ def home():
 def predict():
     try:
         data = request.get_json()
+
         input_data = np.array([
             data["fixed_acidity"],
             data["volatile_acidity"],
@@ -49,10 +50,17 @@ def predict():
             data["alcohol"]
         ]).reshape(1, -1)
 
-        input_data[:, 2:3] = imputer_median.transform(input_data[:, 2:3])
+        # ✅ Corrected imputation: pass citric_acid and pH together
+        # Impute density (1 feature)
         input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])
-        input_data[:, 8:9] = imputer_median.transform(input_data[:, 8:9])
 
+        # Impute citric_acid and pH (2 features together)
+        median_input = input_data[:, [2, 8]]
+        median_output = imputer_median.transform(median_input)
+        input_data[:, 2] = median_output[:, 0]  # citric_acid
+        input_data[:, 8] = median_output[:, 1]  # pH
+
+        # Predict
         prediction = model.predict(input_data)[0]
         confidence = model.predict_proba(input_data)[0][prediction]
 
