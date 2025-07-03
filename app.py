@@ -5,7 +5,7 @@ import joblib
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/*": {"origins": "*"}})  # ✅ Fix CORS for all origins
 
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
@@ -22,6 +22,7 @@ def predict():
         data = request.get_json()
         print("📥 Received JSON:", data)
 
+        # Prepare input
         input_data = np.array([
             data["fixed_acidity"],
             data["volatile_acidity"],
@@ -38,16 +39,15 @@ def predict():
 
         print("🧪 Before imputation:", input_data)
 
-        input_data[:, 2:3] = imputer_median.transform(input_data[:, 2:3])  # citric acid
-        input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])    # density
-        input_data[:, 8:9] = imputer_median.transform(input_data[:, 8:9])  # pH
+        # Apply imputers properly (✅ Use both citric acid and pH at once if the imputer expects 2 columns)
+        input_data[:, [2, 8]] = imputer_median.transform(input_data[:, [2, 8]])  # citric acid and pH
+        input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])  # density
 
         print("✅ After imputation:", input_data)
 
+        # Predict
         prediction = model.predict(input_data)[0]
         confidence = model.predict_proba(input_data)[0][prediction]
-
-        print(f"🔮 Prediction: {prediction}, Confidence: {confidence}")
 
         return jsonify({
             "result": "Good" if prediction == 1 else "Not Good",
@@ -58,8 +58,6 @@ def predict():
         print("❌ ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
 
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
