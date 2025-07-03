@@ -1,37 +1,18 @@
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import numpy as np
 import joblib
 import os
 
 app = Flask(__name__)
 
+# ✅ Allow CORS for ALL routes and your web frontend
+CORS(app, resources={r"/predict": {"origins": "https://labexam1-c5b75.web.app"}})
+
+# Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
 imputer_mean = joblib.load("imputer_mean_density.pkl")
 imputer_median = joblib.load("imputer_median_citric_pH.pkl")
-
-# ✅ Allow both localhost and Firebase origin
-ALLOWED_ORIGINS = ["https://labexam1-c5b75.web.app", "http://localhost:5173"]
-
-@app.after_request
-def add_cors_headers(response):
-    origin = request.headers.get("Origin")
-    if origin in ALLOWED_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Vary"] = "Origin"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
-    return response
-
-@app.route("/predict", methods=["OPTIONS"])
-def handle_preflight():
-    response = make_response()
-    origin = request.headers.get("Origin")
-    if origin in ALLOWED_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Vary"] = "Origin"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
-    return response
 
 @app.route("/")
 def home():
@@ -41,6 +22,16 @@ def home():
 def predict():
     try:
         data = request.get_json()
+
+        # Ensure all expected fields are present
+        expected_fields = [
+            "fixed_acidity", "volatile_acidity", "citric_acid",
+            "residual_sugar", "chlorides", "free_sulfur_dioxide",
+            "total_sulfur_dioxide", "density", "pH", "sulphates", "alcohol"
+        ]
+        if not all(field in data for field in expected_fields):
+            return jsonify({"error": "Missing input fields"}), 400
+
         input_data = np.array([
             data["fixed_acidity"],
             data["volatile_acidity"],
@@ -55,11 +46,10 @@ def predict():
             data["alcohol"]
         ]).reshape(1, -1)
 
-        input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])
-        median_input = input_data[:, [2, 8]]
-        median_output = imputer_median.transform(median_input)
-        input_data[:, 2] = median_output[:, 0]
-        input_data[:, 8] = median_output[:, 1]
+        # Apply imputers correctly on slices
+        input_data[:, 2] = imputer_median.transform(input_data[:, 2].reshape(-1, 1)).flatten()
+        input_data[:, 7] = imputer_mean.transform(input_data[:, 7].reshape(-1, 1)).flatten()
+        input_data[:, 8] = imputer_median.transform(input_data[:, 8].reshape(-1, 1)).flatten()
 
         prediction = model.predict(input_data)[0]
         confidence = model.predict_proba(input_data)[0][prediction]
