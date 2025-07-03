@@ -1,63 +1,44 @@
-from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS
-import numpy as np
-import pandas as pd
+import streamlit as st
 import joblib
-import os
-
-app = Flask(__name__)
-CORS(app, origins=["https://labexam1-c5b75.web.app"])  # ✅ allow your frontend
+import numpy as np
 
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
 imputer_mean = joblib.load("imputer_mean_density.pkl")
 imputer_median = joblib.load("imputer_median_citric_pH.pkl")
 
-@app.route("/")
-def home():
-    return "Wine Quality Predictor API is running."
+st.set_page_config(page_title="Wine Quality Predictor 🍷", layout="centered")
+st.title("🍷 Wine Quality Predictor")
 
-@app.route("/predict", methods=["POST"])
-def predict():
+with st.form("wine_form"):
+    fixed_acidity = st.number_input("Fixed Acidity", min_value=0.0)
+    volatile_acidity = st.number_input("Volatile Acidity", min_value=0.0)
+    citric_acid = st.number_input("Citric Acid", min_value=0.0)
+    residual_sugar = st.number_input("Residual Sugar", min_value=0.0)
+    chlorides = st.number_input("Chlorides", min_value=0.0)
+    free_sulfur_dioxide = st.number_input("Free Sulfur Dioxide", min_value=0.0)
+    total_sulfur_dioxide = st.number_input("Total Sulfur Dioxide", min_value=0.0)
+    density = st.number_input("Density", min_value=0.0)
+    pH = st.number_input("pH", min_value=0.0)
+    sulphates = st.number_input("Sulphates", min_value=0.0)
+    alcohol = st.number_input("Alcohol", min_value=0.0)
+
+    submitted = st.form_submit_button("Predict")
+
+if submitted:
     try:
-        data = request.get_json()
+        input_data = np.array([[fixed_acidity, volatile_acidity, citric_acid, residual_sugar,
+                                chlorides, free_sulfur_dioxide, total_sulfur_dioxide,
+                                density, pH, sulphates, alcohol]])
+        input_data[:, 2:3] = imputer_median.transform(input_data[:, 2:3])
+        input_data[:, 7:8] = imputer_mean.transform(input_data[:, 7:8])
+        input_data[:, 8:9] = imputer_median.transform(input_data[:, 8:9])
 
-        feature_names = [
-            "fixed_acidity", "volatile_acidity", "citric_acid",
-            "residual_sugar", "chlorides", "free_sulfur_dioxide",
-            "total_sulfur_dioxide", "density", "pH", "sulphates", "alcohol"
-        ]
+        prediction = model.predict(input_data)[0]
+        confidence = model.predict_proba(input_data)[0][prediction]
 
-        input_df = pd.DataFrame([[
-            data["fixed_acidity"],
-            data["volatile_acidity"],
-            data["citric_acid"],
-            data["residual_sugar"],
-            data["chlorides"],
-            data["free_sulfur_dioxide"],
-            data["total_sulfur_dioxide"],
-            data["density"],
-            data["pH"],
-            data["sulphates"],
-            data["alcohol"]
-        ]], columns=feature_names)
-
-        # Apply imputers
-        input_df[["citric_acid"]] = imputer_median.transform(input_df[["citric_acid"]])
-        input_df[["density"]] = imputer_mean.transform(input_df[["density"]])
-        input_df[["pH"]] = imputer_median.transform(input_df[["pH"]])
-
-        prediction = model.predict(input_df)[0]
-        confidence = model.predict_proba(input_df)[0][prediction]
-
-        return jsonify({
-            "result": "Good" if prediction == 1 else "Not Good",
-            "confidence": round(float(confidence) * 100, 2)
-        })
-
+        result = "Good" if prediction == 1 else "Not Good"
+        st.success(f"Prediction: **{result}**")
+        st.info(f"Confidence: **{round(float(confidence) * 100, 2)}%**")
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+        st.error(f"Error: {e}")
