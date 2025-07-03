@@ -1,22 +1,31 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, make_response
 import numpy as np
 import joblib
 import os
 
 app = Flask(__name__)
 
-# ✅ Full CORS config to handle preflight OPTIONS requests
-CORS(app, resources={r"/*": {
-    "origins": "https://labexam1-c5b75.web.app",
-    "methods": ["GET", "POST", "OPTIONS"],
-    "allow_headers": ["Content-Type"]
-}})
-
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
 imputer_mean = joblib.load("imputer_mean_density.pkl")
 imputer_median = joblib.load("imputer_median_citric_pH.pkl")
+
+# ✅ CORS middleware to allow Firebase frontend
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "https://labexam1-c5b75.web.app"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+    return response
+
+# ✅ Handle preflight OPTIONS requests
+@app.route("/predict", methods=["OPTIONS"])
+def handle_preflight():
+    response = make_response()
+    response.headers["Access-Control-Allow-Origin"] = "https://labexam1-c5b75.web.app"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+    return response
 
 @app.route("/")
 def home():
