@@ -5,7 +5,7 @@ import joblib
 import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
 # Load model and imputers
 model = joblib.load("xgb_wine_model.pkl")
